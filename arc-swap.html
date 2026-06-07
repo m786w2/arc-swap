@@ -1,0 +1,1001 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>ARC Swap — Testnet</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;600;800&display=swap" rel="stylesheet" />
+<script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.7.1/ethers.umd.min.js"></script>
+<style>
+  :root {
+    --bg: #060a0f;
+    --surface: #0d1520;
+    --card: #111c2e;
+    --border: #1e3050;
+    --accent: #00d4ff;
+    --accent2: #7b5ea7;
+    --green: #00e87a;
+    --red: #ff4060;
+    --text: #e8f4ff;
+    --muted: #5a7a99;
+    --font-head: 'Syne', sans-serif;
+    --font-mono: 'Space Mono', monospace;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font-mono);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    overflow-x: hidden;
+  }
+
+  /* Animated grid bg */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(0,212,255,0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0,212,255,0.03) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* Glow blob */
+  .blob {
+    position: fixed;
+    width: 600px; height: 600px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(0,212,255,0.07) 0%, transparent 70%);
+    top: -100px; left: 50%;
+    transform: translateX(-50%);
+    pointer-events: none;
+    z-index: 0;
+    animation: blobPulse 6s ease-in-out infinite;
+  }
+  @keyframes blobPulse {
+    0%,100% { transform: translateX(-50%) scale(1); opacity: 1; }
+    50% { transform: translateX(-50%) scale(1.15); opacity: 0.6; }
+  }
+
+  /* Header */
+  header {
+    position: relative; z-index: 10;
+    width: 100%; max-width: 1100px;
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 24px 32px;
+    border-bottom: 1px solid var(--border);
+  }
+  .logo {
+    font-family: var(--font-head);
+    font-size: 22px; font-weight: 800;
+    letter-spacing: -0.5px;
+    background: linear-gradient(90deg, var(--accent), #7b5ea7);
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  }
+  .logo span { color: var(--accent); }
+  .net-badge {
+    font-size: 10px;
+    background: rgba(0,212,255,0.1);
+    border: 1px solid rgba(0,212,255,0.3);
+    color: var(--accent);
+    padding: 3px 10px;
+    border-radius: 20px;
+    margin-left: 10px;
+    font-family: var(--font-mono);
+    vertical-align: middle;
+  }
+
+  #connectBtn {
+    background: linear-gradient(135deg, rgba(0,212,255,0.15), rgba(123,94,167,0.15));
+    border: 1px solid var(--accent);
+    color: var(--accent);
+    font-family: var(--font-mono);
+    font-size: 12px;
+    padding: 10px 20px;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s;
+    letter-spacing: 0.5px;
+  }
+  #connectBtn:hover {
+    background: rgba(0,212,255,0.25);
+    box-shadow: 0 0 20px rgba(0,212,255,0.2);
+  }
+  #connectBtn.connected {
+    border-color: var(--green);
+    color: var(--green);
+    background: rgba(0,232,122,0.1);
+  }
+
+  /* Main */
+  main {
+    position: relative; z-index: 10;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 40px 20px;
+    width: 100%;
+  }
+
+  .tagline {
+    font-family: var(--font-head);
+    font-size: clamp(28px, 5vw, 52px);
+    font-weight: 800;
+    text-align: center;
+    margin-bottom: 8px;
+    line-height: 1.1;
+    letter-spacing: -1px;
+  }
+  .tagline .arc { color: var(--accent); }
+  .sub {
+    color: var(--muted);
+    font-size: 13px;
+    text-align: center;
+    margin-bottom: 40px;
+    letter-spacing: 0.5px;
+  }
+
+  /* Swap Card */
+  .swap-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    width: 100%;
+    max-width: 460px;
+    padding: 24px;
+    box-shadow: 0 0 60px rgba(0,0,0,0.5), 0 0 0 1px rgba(0,212,255,0.05);
+    animation: fadeUp 0.5s ease;
+  }
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .card-header {
+    display: flex; justify-content: space-between; align-items: center;
+    margin-bottom: 20px;
+  }
+  .card-title {
+    font-family: var(--font-head);
+    font-size: 18px; font-weight: 600;
+  }
+  .settings-btn {
+    background: none; border: 1px solid var(--border);
+    color: var(--muted); cursor: pointer;
+    padding: 6px 12px; border-radius: 8px;
+    font-size: 18px;
+    transition: all 0.2s;
+  }
+  .settings-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+  /* Token Box */
+  .token-box {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 16px;
+    transition: border-color 0.2s;
+  }
+  .token-box:focus-within { border-color: var(--accent); }
+  .token-box-label {
+    font-size: 11px; color: var(--muted);
+    margin-bottom: 10px; letter-spacing: 1px;
+    text-transform: uppercase;
+  }
+  .token-row {
+    display: flex; align-items: center; gap: 12px;
+  }
+  .token-select {
+    display: flex; align-items: center; gap: 8px;
+    background: rgba(0,212,255,0.08);
+    border: 1px solid rgba(0,212,255,0.2);
+    border-radius: 10px;
+    padding: 8px 14px;
+    cursor: pointer;
+    min-width: 130px;
+    transition: all 0.2s;
+    position: relative;
+  }
+  .token-select:hover { background: rgba(0,212,255,0.15); }
+  .token-icon {
+    width: 26px; height: 26px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 14px; font-weight: bold;
+    flex-shrink: 0;
+  }
+  .token-name { font-family: var(--font-head); font-size: 15px; font-weight: 600; }
+  .token-chevron { margin-left: auto; color: var(--muted); font-size: 12px; }
+  .amount-input {
+    flex: 1;
+    background: none; border: none;
+    color: var(--text);
+    font-family: var(--font-mono);
+    font-size: 22px;
+    text-align: right;
+    outline: none;
+    min-width: 0;
+  }
+  .amount-input::placeholder { color: var(--muted); }
+  .token-usd {
+    display: flex; justify-content: space-between;
+    font-size: 11px; color: var(--muted);
+    margin-top: 10px;
+  }
+  .bal-click { cursor: pointer; color: var(--accent); }
+  .bal-click:hover { text-decoration: underline; }
+
+  /* Swap Arrow */
+  .swap-arrow-wrap {
+    display: flex; justify-content: center;
+    margin: 10px 0;
+    position: relative;
+  }
+  .swap-arrow-btn {
+    background: var(--card);
+    border: 2px solid var(--border);
+    border-radius: 10px;
+    width: 40px; height: 40px;
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer;
+    font-size: 18px;
+    transition: all 0.3s;
+    color: var(--accent);
+  }
+  .swap-arrow-btn:hover {
+    background: rgba(0,212,255,0.1);
+    border-color: var(--accent);
+    transform: rotate(180deg);
+  }
+
+  /* Rate Info */
+  .rate-info {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 12px 16px;
+    margin-top: 12px;
+    font-size: 12px;
+    display: none;
+  }
+  .rate-info.show { display: block; }
+  .rate-row {
+    display: flex; justify-content: space-between;
+    margin-bottom: 6px; color: var(--muted);
+  }
+  .rate-row:last-child { margin-bottom: 0; }
+  .rate-row span:last-child { color: var(--text); }
+  .rate-row .good { color: var(--green); }
+  .rate-divider { border: none; border-top: 1px solid var(--border); margin: 8px 0; }
+
+  /* Swap Button */
+  #swapBtn {
+    width: 100%; margin-top: 14px;
+    padding: 16px;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    border: none; border-radius: 14px;
+    color: #000;
+    font-family: var(--font-head);
+    font-size: 16px; font-weight: 700;
+    cursor: pointer;
+    letter-spacing: 0.5px;
+    transition: all 0.2s;
+    position: relative; overflow: hidden;
+  }
+  #swapBtn::after {
+    content: '';
+    position: absolute; inset: 0;
+    background: rgba(255,255,255,0);
+    transition: background 0.2s;
+  }
+  #swapBtn:hover::after { background: rgba(255,255,255,0.1); }
+  #swapBtn:disabled {
+    background: var(--border);
+    color: var(--muted);
+    cursor: not-allowed;
+  }
+  #swapBtn.loading { pointer-events: none; }
+
+  /* Spinner */
+  .spinner {
+    display: inline-block;
+    width: 16px; height: 16px;
+    border: 2px solid rgba(0,0,0,0.3);
+    border-top-color: #000;
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+    vertical-align: middle; margin-right: 8px;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* Status Banner */
+  .status-banner {
+    margin-top: 12px;
+    padding: 12px 16px;
+    border-radius: 10px;
+    font-size: 12px;
+    display: none;
+    word-break: break-all;
+  }
+  .status-banner.show { display: block; }
+  .status-banner.info { background: rgba(0,212,255,0.1); border: 1px solid rgba(0,212,255,0.3); color: var(--accent); }
+  .status-banner.success { background: rgba(0,232,122,0.1); border: 1px solid rgba(0,232,122,0.3); color: var(--green); }
+  .status-banner.error { background: rgba(255,64,96,0.1); border: 1px solid rgba(255,64,96,0.3); color: var(--red); }
+
+  /* Token Picker Modal */
+  .modal-overlay {
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,0.8);
+    z-index: 100;
+    display: none;
+    align-items: center; justify-content: center;
+    backdrop-filter: blur(4px);
+  }
+  .modal-overlay.show { display: flex; }
+  .modal {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    width: 380px; max-height: 80vh;
+    display: flex; flex-direction: column;
+    overflow: hidden;
+    animation: fadeUp 0.2s ease;
+  }
+  .modal-head {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 20px; border-bottom: 1px solid var(--border);
+  }
+  .modal-head h3 { font-family: var(--font-head); font-size: 16px; }
+  .modal-close { background: none; border: none; color: var(--muted); cursor: pointer; font-size: 22px; }
+  .modal-search {
+    margin: 16px;
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 10px; padding: 10px 14px;
+    color: var(--text); font-family: var(--font-mono); font-size: 14px;
+    outline: none; width: calc(100% - 32px);
+  }
+  .modal-search:focus { border-color: var(--accent); }
+  .token-list { overflow-y: auto; padding: 0 8px 12px; }
+  .token-item {
+    display: flex; align-items: center; gap: 12px;
+    padding: 12px; border-radius: 12px;
+    cursor: pointer; transition: background 0.15s;
+  }
+  .token-item:hover { background: rgba(0,212,255,0.07); }
+  .token-item-info { flex: 1; }
+  .token-item-name { font-family: var(--font-head); font-size: 14px; font-weight: 600; }
+  .token-item-addr { font-size: 10px; color: var(--muted); margin-top: 2px; }
+  .token-item-bal { font-size: 13px; color: var(--muted); }
+
+  /* Settings Modal */
+  .settings-modal {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    width: 360px;
+    animation: fadeUp 0.2s ease;
+  }
+  .slippage-row { display: flex; gap: 8px; margin-top: 12px; }
+  .slip-btn {
+    flex: 1; padding: 8px;
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 8px; color: var(--text);
+    font-family: var(--font-mono); font-size: 13px;
+    cursor: pointer; transition: all 0.2s;
+  }
+  .slip-btn.active, .slip-btn:hover {
+    border-color: var(--accent); color: var(--accent);
+    background: rgba(0,212,255,0.1);
+  }
+  .slip-custom {
+    flex: 1.5; padding: 8px;
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 8px; color: var(--text);
+    font-family: var(--font-mono); font-size: 13px;
+    outline: none; text-align: center;
+  }
+  .slip-custom:focus { border-color: var(--accent); }
+  .settings-label { font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; }
+
+  /* Network Alert */
+  .net-alert {
+    background: rgba(255,64,96,0.1);
+    border: 1px solid rgba(255,64,96,0.4);
+    border-radius: 12px;
+    padding: 12px 16px;
+    color: var(--red);
+    font-size: 12px;
+    margin-bottom: 14px;
+    display: none;
+    text-align: center;
+  }
+  .net-alert.show { display: block; }
+  .net-alert button {
+    background: none; border: 1px solid var(--red);
+    color: var(--red); font-family: var(--font-mono);
+    font-size: 11px; padding: 4px 12px;
+    border-radius: 6px; cursor: pointer;
+    margin-top: 8px;
+  }
+  .net-alert button:hover { background: rgba(255,64,96,0.1); }
+
+  /* Bottom Stats */
+  .stats-row {
+    display: flex; gap: 20px; margin-top: 30px;
+    flex-wrap: wrap; justify-content: center;
+  }
+  .stat-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 16px 24px;
+    text-align: center;
+    min-width: 130px;
+  }
+  .stat-val { font-family: var(--font-head); font-size: 20px; font-weight: 700; color: var(--accent); }
+  .stat-lbl { font-size: 10px; color: var(--muted); margin-top: 4px; text-transform: uppercase; letter-spacing: 1px; }
+
+  footer {
+    position: relative; z-index: 10;
+    padding: 20px; text-align: center;
+    color: var(--muted); font-size: 11px;
+    border-top: 1px solid var(--border);
+    width: 100%;
+  }
+  footer a { color: var(--accent); text-decoration: none; }
+
+  .tx-link { color: var(--accent); text-decoration: underline; }
+</style>
+</head>
+<body>
+<div class="blob"></div>
+
+<!-- Header -->
+<header>
+  <div>
+    <span class="logo">ARC<span>SWAP</span></span>
+    <span class="net-badge">TESTNET</span>
+  </div>
+  <button id="connectBtn" onclick="connectWallet()">⚡ Connect Wallet</button>
+</header>
+
+<!-- Main -->
+<main>
+  <h1 class="tagline">Swap on <span class="arc">ARC</span> Testnet</h1>
+  <p class="sub">CIRCLE'S L1 · USDC GAS · SUB-SECOND FINALITY</p>
+
+  <!-- Network Alert -->
+  <div class="net-alert" id="netAlert">
+    ⚠️ Wrong Network! Please switch to ARC Testnet (Chain ID: 5042002)
+    <br>
+    <button onclick="switchNetwork()">Switch to ARC Testnet</button>
+  </div>
+
+  <div class="swap-card">
+    <div class="card-header">
+      <span class="card-title">Swap Tokens</span>
+      <button class="settings-btn" onclick="openSettings()" title="Settings">⚙</button>
+    </div>
+
+    <!-- From Token -->
+    <div class="token-box">
+      <div class="token-box-label">You Pay</div>
+      <div class="token-row">
+        <div class="token-select" onclick="openPicker('from')" id="fromTokenBtn">
+          <div class="token-icon" id="fromIcon">🔵</div>
+          <span class="token-name" id="fromTokenName">USDC</span>
+          <span class="token-chevron">▼</span>
+        </div>
+        <input class="amount-input" id="fromAmount" type="number" placeholder="0.0" min="0" oninput="onAmountChange()" />
+      </div>
+      <div class="token-usd">
+        <span id="fromUsd">≈ $0.00</span>
+        <span>Bal: <span class="bal-click" onclick="setMax()" id="fromBalance">0.00</span></span>
+      </div>
+    </div>
+
+    <!-- Arrow -->
+    <div class="swap-arrow-wrap">
+      <button class="swap-arrow-btn" onclick="swapTokens()" title="Flip tokens">⇅</button>
+    </div>
+
+    <!-- To Token -->
+    <div class="token-box">
+      <div class="token-box-label">You Receive</div>
+      <div class="token-row">
+        <div class="token-select" onclick="openPicker('to')" id="toTokenBtn">
+          <div class="token-icon" id="toIcon">🟣</div>
+          <span class="token-name" id="toTokenName">WETH</span>
+          <span class="token-chevron">▼</span>
+        </div>
+        <input class="amount-input" id="toAmount" type="number" placeholder="0.0" readonly />
+      </div>
+      <div class="token-usd">
+        <span id="toUsd">≈ $0.00</span>
+        <span>Bal: <span id="toBalance">0.00</span></span>
+      </div>
+    </div>
+
+    <!-- Rate Info -->
+    <div class="rate-info" id="rateInfo">
+      <div class="rate-row"><span>Rate</span><span id="rateVal">—</span></div>
+      <div class="rate-row"><span>Slippage</span><span id="slippageVal" class="good">0.5%</span></div>
+      <hr class="rate-divider">
+      <div class="rate-row"><span>Gas (USDC)</span><span id="gasVal">~0.001 USDC</span></div>
+      <div class="rate-row"><span>Min. Received</span><span id="minReceived">—</span></div>
+    </div>
+
+    <!-- Status -->
+    <div class="status-banner" id="statusBanner"></div>
+
+    <!-- Swap Button -->
+    <button id="swapBtn" onclick="executeSwap()" disabled>Connect Wallet First</button>
+  </div>
+
+  <!-- Stats -->
+  <div class="stats-row">
+    <div class="stat-card">
+      <div class="stat-val" id="statChain">5042002</div>
+      <div class="stat-lbl">Chain ID</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-val">USDC</div>
+      <div class="stat-lbl">Gas Token</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-val">&lt;1s</div>
+      <div class="stat-lbl">Finality</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-val" id="statBlock">—</div>
+      <div class="stat-lbl">Latest Block</div>
+    </div>
+  </div>
+</main>
+
+<footer>
+  Built on <a href="https://arc.network" target="_blank">ARC Network</a> ·
+  Explorer: <a href="https://testnet.arcscan.app" target="_blank">arcscan.app</a> ·
+  Faucet: <a href="https://faucet.circle.com" target="_blank">faucet.circle.com</a>
+</footer>
+
+<!-- Token Picker Modal -->
+<div class="modal-overlay" id="tokenModal">
+  <div class="modal">
+    <div class="modal-head">
+      <h3>Select Token</h3>
+      <button class="modal-close" onclick="closeModal()">✕</button>
+    </div>
+    <input class="modal-search" id="tokenSearch" placeholder="Search name or paste address..." oninput="filterTokens()" />
+    <div class="token-list" id="tokenList"></div>
+  </div>
+</div>
+
+<!-- Settings Modal -->
+<div class="modal-overlay" id="settingsModal">
+  <div class="modal settings-modal">
+    <div class="modal-head">
+      <h3>Swap Settings</h3>
+      <button class="modal-close" onclick="closeSettings()">✕</button>
+    </div>
+    <div style="padding: 20px;">
+      <div class="settings-label">Slippage Tolerance</div>
+      <div class="slippage-row" id="slippageBtns">
+        <button class="slip-btn active" onclick="setSlippage(0.1, this)">0.1%</button>
+        <button class="slip-btn" onclick="setSlippage(0.5, this)">0.5%</button>
+        <button class="slip-btn" onclick="setSlippage(1.0, this)">1.0%</button>
+        <input class="slip-custom" id="customSlippage" type="number" placeholder="Custom" min="0.01" max="50" step="0.1" oninput="setCustomSlippage(this.value)" />
+      </div>
+      <div style="margin-top: 20px;" class="settings-label">Transaction Deadline</div>
+      <div style="display:flex; align-items:center; gap:10px; margin-top:10px;">
+        <input id="deadlineInput" type="number" value="20" min="1" max="60"
+          style="width:80px; background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:8px; color:var(--text); font-family:var(--font-mono); font-size:13px; outline:none;" />
+        <span style="color:var(--muted); font-size:13px;">minutes</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ─── ARC TESTNET CONFIG ───────────────────────────────────────────────
+const ARC_CHAIN_ID = 5042002;
+const ARC_CHAIN_HEX = '0x' + ARC_CHAIN_ID.toString(16);
+const ARC_RPC = 'https://rpc.testnet.arc.network';
+const ARC_EXPLORER = 'https://testnet.arcscan.app';
+
+const ARC_NETWORK_PARAMS = {
+  chainId: ARC_CHAIN_HEX,
+  chainName: 'ARC Testnet',
+  nativeCurrency: { name: 'USDC', symbol: 'USDC', decimals: 6 },
+  rpcUrls: [ARC_RPC, 'https://arc-testnet.drpc.org'],
+  blockExplorerUrls: [ARC_EXPLORER]
+};
+
+// ─── TOKENS (ARC Testnet) ─────────────────────────────────────────────
+// Note: Replace contract addresses with actual deployed testnet contracts
+const TOKENS = [
+  { symbol: 'USDC', name: 'USD Coin', icon: '🔵', color: '#2775CA', decimals: 6,  address: '0x0000000000000000000000000000000000000001', isNative: true,  price: 1.00   },
+  { symbol: 'WETH', name: 'Wrapped ETH',  icon: '🟣', color: '#627EEA', decimals: 18, address: '0x0000000000000000000000000000000000000002', isNative: false, price: 3250   },
+  { symbol: 'WBTC', name: 'Wrapped BTC',  icon: '🟠', color: '#F7931A', decimals: 8,  address: '0x0000000000000000000000000000000000000003', isNative: false, price: 67000  },
+  { symbol: 'USDT', name: 'Tether USD',   icon: '🟢', color: '#26A17B', decimals: 6,  address: '0x0000000000000000000000000000000000000004', isNative: false, price: 1.00   },
+  { symbol: 'DAI',  name: 'Dai Stablecoin', icon: '🟡', color: '#F5AC37', decimals: 18, address: '0x0000000000000000000000000000000000000005', isNative: false, price: 1.00 },
+  { symbol: 'ARB',  name: 'Arbitrum',     icon: '🔷', color: '#28A0F0', decimals: 18, address: '0x0000000000000000000000000000000000000006', isNative: false, price: 1.10   },
+];
+
+// ─── ERC20 ABI ────────────────────────────────────────────────────────
+const ERC20_ABI = [
+  'function balanceOf(address) view returns (uint256)',
+  'function allowance(address owner, address spender) view returns (uint256)',
+  'function approve(address spender, uint256 amount) returns (bool)',
+  'function transfer(address to, uint256 amount) returns (bool)',
+  'function decimals() view returns (uint8)',
+  'function symbol() view returns (string)',
+];
+
+// ─── STATE ────────────────────────────────────────────────────────────
+let provider = null;
+let signer = null;
+let account = null;
+let currentChainId = null;
+let fromToken = TOKENS[0]; // USDC
+let toToken   = TOKENS[1]; // WETH
+let slippage  = 0.5;
+let pickerTarget = 'from';
+
+// ─── WALLET CONNECT ───────────────────────────────────────────────────
+async function connectWallet() {
+  if (!window.ethereum) {
+    showStatus('Please install MetaMask! metamask.io', 'error');
+    return;
+  }
+  try {
+    showStatus('Connecting to MetaMask...', 'info');
+    const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
+    account = accounts[0];
+    provider = new ethers.BrowserProvider(window.ethereum);
+    signer = await provider.getSigner();
+    const network = await provider.getNetwork();
+    currentChainId = Number(network.chainId);
+
+    updateConnectBtn();
+    checkNetwork();
+    await loadBalances();
+    pollBlock();
+    showStatus('Wallet connected: ' + shortAddr(account), 'success');
+    setTimeout(hideStatus, 3000);
+
+    // Listen for account/chain changes
+    window.ethereum.on('accountsChanged', (accs) => {
+      if (accs.length === 0) { disconnectWallet(); return; }
+      account = accs[0];
+      updateConnectBtn();
+      loadBalances();
+    });
+    window.ethereum.on('chainChanged', (chainId) => {
+      currentChainId = parseInt(chainId, 16);
+      checkNetwork();
+      loadBalances();
+    });
+  } catch (e) {
+    showStatus('Connection failed: ' + (e.message || e), 'error');
+  }
+}
+
+function disconnectWallet() {
+  account = null; provider = null; signer = null;
+  document.getElementById('connectBtn').textContent = '⚡ Connect Wallet';
+  document.getElementById('connectBtn').classList.remove('connected');
+  document.getElementById('swapBtn').disabled = true;
+  document.getElementById('swapBtn').textContent = 'Connect Wallet First';
+}
+
+function updateConnectBtn() {
+  const btn = document.getElementById('connectBtn');
+  btn.textContent = shortAddr(account);
+  btn.classList.add('connected');
+}
+
+function shortAddr(a) {
+  return a.slice(0, 6) + '...' + a.slice(-4);
+}
+
+// ─── NETWORK CHECK ────────────────────────────────────────────────────
+function checkNetwork() {
+  const alert = document.getElementById('netAlert');
+  if (currentChainId !== ARC_CHAIN_ID) {
+    alert.classList.add('show');
+    document.getElementById('swapBtn').disabled = true;
+    document.getElementById('swapBtn').textContent = 'Switch to ARC Testnet';
+  } else {
+    alert.classList.remove('show');
+    document.getElementById('swapBtn').disabled = false;
+    document.getElementById('swapBtn').textContent = 'Swap Now →';
+  }
+}
+
+async function switchNetwork() {
+  try {
+    await window.ethereum.request({
+      method: 'wallet_switchEthereumChain',
+      params: [{ chainId: ARC_CHAIN_HEX }]
+    });
+  } catch (e) {
+    if (e.code === 4902) {
+      try {
+        await window.ethereum.request({
+          method: 'wallet_addEthereumChain',
+          params: [ARC_NETWORK_PARAMS]
+        });
+      } catch (addErr) {
+        showStatus('Failed to add network: ' + addErr.message, 'error');
+      }
+    } else {
+      showStatus('Network switch failed: ' + e.message, 'error');
+    }
+  }
+}
+
+// ─── BLOCK POLLER ────────────────────────────────────────────────────
+async function pollBlock() {
+  if (!provider) return;
+  try {
+    const block = await provider.getBlockNumber();
+    document.getElementById('statBlock').textContent = '#' + block.toLocaleString();
+  } catch {}
+  setTimeout(pollBlock, 5000);
+}
+
+// ─── BALANCES ────────────────────────────────────────────────────────
+async function loadBalances() {
+  if (!account || !provider) return;
+  try {
+    // From token balance
+    const fromBal = await getTokenBalance(fromToken, account);
+    document.getElementById('fromBalance').textContent = parseFloat(fromBal).toFixed(4);
+    // To token balance
+    const toBal = await getTokenBalance(toToken, account);
+    document.getElementById('toBalance').textContent = parseFloat(toBal).toFixed(4);
+  } catch (e) {
+    console.warn('Balance fetch error:', e);
+  }
+}
+
+async function getTokenBalance(token, addr) {
+  try {
+    if (token.isNative) {
+      const bal = await provider.getBalance(addr);
+      return ethers.formatUnits(bal, token.decimals);
+    } else {
+      const contract = new ethers.Contract(token.address, ERC20_ABI, provider);
+      const bal = await contract.balanceOf(addr);
+      return ethers.formatUnits(bal, token.decimals);
+    }
+  } catch { return '0.00'; }
+}
+
+function setMax() {
+  const bal = document.getElementById('fromBalance').textContent;
+  document.getElementById('fromAmount').value = bal;
+  onAmountChange();
+}
+
+// ─── AMOUNT CHANGE ───────────────────────────────────────────────────
+function onAmountChange() {
+  const val = parseFloat(document.getElementById('fromAmount').value) || 0;
+  if (val <= 0) {
+    document.getElementById('toAmount').value = '';
+    document.getElementById('rateInfo').classList.remove('show');
+    document.getElementById('fromUsd').textContent = '≈ $0.00';
+    document.getElementById('toUsd').textContent = '≈ $0.00';
+    return;
+  }
+
+  // Simulated rate (in real app: fetch from DEX router)
+  const rate = fromToken.price / toToken.price;
+  const out = val * rate * (1 - slippage / 100);
+  document.getElementById('toAmount').value = out.toFixed(6);
+
+  // USD values
+  const fromUsd = val * fromToken.price;
+  const toUsd = out * toToken.price;
+  document.getElementById('fromUsd').textContent = '≈ $' + fromUsd.toFixed(2);
+  document.getElementById('toUsd').textContent = '≈ $' + toUsd.toFixed(2);
+
+  // Rate info
+  document.getElementById('rateInfo').classList.add('show');
+  document.getElementById('rateVal').textContent = `1 ${fromToken.symbol} = ${rate.toFixed(6)} ${toToken.symbol}`;
+  document.getElementById('slippageVal').textContent = slippage + '%';
+  document.getElementById('minReceived').textContent = (out * (1 - slippage / 100)).toFixed(6) + ' ' + toToken.symbol;
+
+  if (!account || currentChainId !== ARC_CHAIN_ID) return;
+  document.getElementById('swapBtn').disabled = false;
+  document.getElementById('swapBtn').textContent = `Swap ${fromToken.symbol} → ${toToken.symbol}`;
+}
+
+// ─── EXECUTE SWAP ────────────────────────────────────────────────────
+async function executeSwap() {
+  if (!account) { connectWallet(); return; }
+  if (currentChainId !== ARC_CHAIN_ID) { switchNetwork(); return; }
+
+  const fromAmt = parseFloat(document.getElementById('fromAmount').value);
+  if (!fromAmt || fromAmt <= 0) {
+    showStatus('Please enter an amount', 'error'); return;
+  }
+
+  const btn = document.getElementById('swapBtn');
+  btn.innerHTML = '<span class="spinner"></span>Swap executing...';
+  btn.classList.add('loading');
+
+  try {
+    showStatus('Preparing transaction...', 'info');
+
+    if (!fromToken.isNative) {
+      // Step 1: Approve if needed
+      showStatus('Approving token...', 'info');
+      const contract = new ethers.Contract(fromToken.address, ERC20_ABI, signer);
+      const amount = ethers.parseUnits(fromAmt.toString(), fromToken.decimals);
+      // In a real DEX, the spender would be the router contract address
+      const ROUTER = '0x0000000000000000000000000000000000000099'; // Replace with actual router
+      const allowance = await contract.allowance(account, ROUTER);
+      if (allowance < amount) {
+        const approveTx = await contract.approve(ROUTER, ethers.MaxUint256);
+        showStatus('Approve tx sent: ' + approveTx.hash, 'info');
+        await approveTx.wait();
+        showStatus('Token approved!', 'success');
+      }
+    }
+
+    // Step 2: Execute Swap
+    // In a real app, you would call the DEX router's swap function here.
+    // Below is a simulated transfer to demonstrate the wallet + signing flow.
+    showStatus('Please confirm the transaction in MetaMask...', 'info');
+
+    // Demo: send a tiny amount to self to show real tx signing
+    const tx = await signer.sendTransaction({
+      to: account, // sending to self as demo
+      value: 0n,
+      data: ethers.hexlify(ethers.toUtf8Bytes('ARC SWAP: ' + fromAmt + ' ' + fromToken.symbol + ' -> ' + toToken.symbol)),
+      gasLimit: 21000n + 100n,
+    });
+
+    showStatus('⏳ Transaction sent! Hash: ' + shortAddr(tx.hash), 'info');
+    const receipt = await tx.wait();
+
+    showStatus(
+      `✅ Swap successful! Block: ${receipt.blockNumber} | <a class="tx-link" href="${ARC_EXPLORER}/tx/${tx.hash}" target="_blank">View on Explorer ↗</a>`,
+      'success'
+    );
+
+    await loadBalances();
+    document.getElementById('fromAmount').value = '';
+    document.getElementById('toAmount').value = '';
+    onAmountChange();
+
+  } catch (e) {
+    const msg = e.reason || e.message || 'Transaction failed';
+    showStatus('❌ ' + msg, 'error');
+  } finally {
+    btn.innerHTML = `Swap ${fromToken.symbol} → ${toToken.symbol}`;
+    btn.classList.remove('loading');
+  }
+}
+
+// ─── TOKEN PICKER ────────────────────────────────────────────────────
+function openPicker(target) {
+  pickerTarget = target;
+  document.getElementById('tokenSearch').value = '';
+  renderTokenList(TOKENS);
+  document.getElementById('tokenModal').classList.add('show');
+}
+function closeModal() {
+  document.getElementById('tokenModal').classList.remove('show');
+}
+function filterTokens() {
+  const q = document.getElementById('tokenSearch').value.toLowerCase();
+  renderTokenList(TOKENS.filter(t =>
+    t.symbol.toLowerCase().includes(q) ||
+    t.name.toLowerCase().includes(q) ||
+    t.address.toLowerCase().includes(q)
+  ));
+}
+function renderTokenList(list) {
+  const el = document.getElementById('tokenList');
+  el.innerHTML = list.map(t => `
+    <div class="token-item" onclick="selectToken('${t.symbol}')">
+      <div class="token-icon" style="background:${t.color}20; font-size:20px;">${t.icon}</div>
+      <div class="token-item-info">
+        <div class="token-item-name">${t.symbol} <small style="color:var(--muted); font-weight:400;">${t.name}</small></div>
+        <div class="token-item-addr">${t.address.slice(0,10)}...${t.address.slice(-6)}</div>
+      </div>
+      <span class="token-item-bal">$${t.price.toLocaleString()}</span>
+    </div>
+  `).join('');
+}
+function selectToken(symbol) {
+  const t = TOKENS.find(x => x.symbol === symbol);
+  if (!t) return;
+  if (pickerTarget === 'from') {
+    if (t.symbol === toToken.symbol) { fromToken = toToken; toToken = t; updateTokenUI(); }
+    else { fromToken = t; updateTokenUI(); }
+  } else {
+    if (t.symbol === fromToken.symbol) { toToken = fromToken; fromToken = t; updateTokenUI(); }
+    else { toToken = t; updateTokenUI(); }
+  }
+  closeModal();
+  loadBalances();
+  onAmountChange();
+}
+function updateTokenUI() {
+  document.getElementById('fromIcon').textContent = fromToken.icon;
+  document.getElementById('fromTokenName').textContent = fromToken.symbol;
+  document.getElementById('toIcon').textContent = toToken.icon;
+  document.getElementById('toTokenName').textContent = toToken.symbol;
+}
+function swapTokens() {
+  [fromToken, toToken] = [toToken, fromToken];
+  updateTokenUI();
+  document.getElementById('fromAmount').value = '';
+  document.getElementById('toAmount').value = '';
+  loadBalances();
+  onAmountChange();
+}
+
+// ─── SETTINGS ────────────────────────────────────────────────────────
+function openSettings() {
+  document.getElementById('settingsModal').classList.add('show');
+}
+function closeSettings() {
+  document.getElementById('settingsModal').classList.remove('show');
+}
+function setSlippage(val, btn) {
+  slippage = val;
+  document.querySelectorAll('.slip-btn').forEach(b => b.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+  document.getElementById('customSlippage').value = '';
+  document.getElementById('slippageVal').textContent = slippage + '%';
+  onAmountChange();
+}
+function setCustomSlippage(val) {
+  if (val && parseFloat(val) > 0) {
+    slippage = parseFloat(val);
+    document.querySelectorAll('.slip-btn').forEach(b => b.classList.remove('active'));
+    onAmountChange();
+  }
+}
+
+// ─── STATUS ──────────────────────────────────────────────────────────
+function showStatus(msg, type) {
+  const el = document.getElementById('statusBanner');
+  el.innerHTML = msg;
+  el.className = 'status-banner show ' + type;
+}
+function hideStatus() {
+  document.getElementById('statusBanner').classList.remove('show');
+}
+
+// ─── CLOSE MODALS ON OVERLAY CLICK ──────────────────────────────────
+document.getElementById('tokenModal').addEventListener('click', function(e) {
+  if (e.target === this) closeModal();
+});
+document.getElementById('settingsModal').addEventListener('click', function(e) {
+  if (e.target === this) closeSettings();
+});
+
+// ─── INIT ─────────────────────────────────────────────────────────────
+updateTokenUI();
+// Auto-detect existing connection
+if (window.ethereum) {
+  window.ethereum.request({ method: 'eth_accounts' }).then(accounts => {
+    if (accounts.length > 0) connectWallet();
+  });
+}
+</script>
+</body>
+</html>
